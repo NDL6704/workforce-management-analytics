@@ -1,0 +1,553 @@
+/* ==============================================================================================
+   POWER BI DAX MEASURES LIBRARY
+   Project: HR Workforce Planning & Attrition Analytics
+   Author: Senior Data Engineer & Principal Power BI Architect
+   Resolution: 1920 x 1080 (16:9 Canvas)
+   Target Table: _Measures (Dedicated Table for Clean Governance)
+   ============================================================================================== */
+
+/* ==============================================================================================
+   FOLDER: 01_Core Workforce
+   Description: Các chỉ số cốt lõi về quy mô lực lượng lao động, FTE, thâm niên và biến động tuyển dụng
+   ============================================================================================== */
+
+// 1. Active Headcount (Semi-additive: Trả về số lượng nhân sự tại thời điểm snapshot cuối kỳ hoặc tính động theo DimEmployee)
+Active Headcount = 
+VAR MaxSelectedDate = MAX('DimDate'[Date])
+VAR LatestSnapshotDate = 
+    CALCULATE(
+        MAX('FactMonthlySnapshot'[Month]),
+        KEEPFILTERS('DimDate')
+    )
+VAR HasSnapshot = NOT(ISEMPTY('FactMonthlySnapshot'))
+RETURN
+    IF(
+        HasSnapshot && NOT(ISBLANK(LatestSnapshotDate)),
+        CALCULATE(
+            SUM('FactMonthlySnapshot'[Headcount]),
+            'FactMonthlySnapshot'[Month] = LatestSnapshotDate
+        ),
+        // Fallback tính toán động trực tiếp từ hồ sơ nhân sự DimEmployee
+        CALCULATE(
+            COUNTROWS('DimEmployee'),
+            'DimEmployee'[HireDate] <= MaxSelectedDate,
+            ISBLANK('DimEmployee'[TerminationDate]) || 'DimEmployee'[TerminationDate] > MaxSelectedDate
+        )
+    )
+
+// 2. Active FTE (Full-Time Equivalent: Tổng số lượng nhân viên tương đương toàn thời gian)
+Active FTE = 
+VAR LatestSnapshotDate = 
+    CALCULATE(
+        MAX('FactMonthlySnapshot'[Month]),
+        KEEPFILTERS('DimDate')
+    )
+RETURN
+    CALCULATE(
+        SUM('FactMonthlySnapshot'[FTE]),
+        'FactMonthlySnapshot'[Month] = LatestSnapshotDate
+    )
+
+// 3. Average Headcount in Period (Headcount bình quân theo tháng trong kỳ được chọn)
+Avg Headcount Period = 
+AVERAGEX(
+    VALUES('DimDate'[Month]),
+    CALCULATE(SUM('FactMonthlySnapshot'[Headcount]))
+)
+
+// 4. New Hires (Số lượng nhân sự mới tuyển dụng trong kỳ từ FactEmployeeEvents)
+New Hires = 
+CALCULATE(
+    COUNTROWS('FactEmployeeEvents'),
+    'FactEmployeeEvents'[EventType] = "Hire"
+) + 0
+
+// 5. Net Workforce Change (Biến động ròng lực lượng lao động = Tuyển mới - Thôi việc)
+Net Workforce Change = 
+[New Hires] - [Terminations Total]
+
+// 6. Average Tenure (Months) - Thâm niên trung bình tính bằng tháng
+Avg Tenure Months = 
+VAR LatestSnapshotDate = 
+    CALCULATE(
+        MAX('FactMonthlySnapshot'[Month]),
+        KEEPFILTERS('DimDate')
+    )
+VAR WeightedTenure = 
+    CALCULATE(
+        SUMX('FactMonthlySnapshot', 'FactMonthlySnapshot'[Headcount] * 'FactMonthlySnapshot'[AvgTenureMonths]),
+        'FactMonthlySnapshot'[Month] = LatestSnapshotDate
+    )
+VAR TotalHC = 
+    CALCULATE(
+        SUM('FactMonthlySnapshot'[Headcount]),
+        'FactMonthlySnapshot'[Month] = LatestSnapshotDate
+    )
+RETURN
+    DIVIDE(WeightedTenure, TotalHC, BLANK())
+
+// 7. Average Tenure (Years) - Thâm niên trung bình tính bằng năm
+Avg Tenure Years = 
+DIVIDE([Avg Tenure Months], 12, BLANK())
+
+// 8. Headcount Previous Month (Headcount tháng liền trước)
+Headcount PM = 
+CALCULATE(
+    [Active Headcount],
+    DATEADD('DimDate'[Date], -1, MONTH)
+)
+
+// 9. Headcount MoM % (Tỷ lệ tăng trưởng nhân sự so với tháng trước)
+Headcount MoM % = 
+VAR CurrentHC = [Active Headcount]
+VAR PrevHC = [Headcount PM]
+RETURN
+    DIVIDE(CurrentHC - PrevHC, PrevHC, BLANK())
+
+// 10. Headcount Previous Year (Headcount cùng kỳ năm trước)
+Headcount PY = 
+CALCULATE(
+    [Active Headcount],
+    SAMEPERIODLASTYEAR('DimDate'[Date])
+)
+
+// 11. Headcount YoY % (Tỷ lệ tăng trưởng nhân sự so với cùng kỳ năm trước)
+Headcount YoY % = 
+VAR CurrentHC = [Active Headcount]
+VAR PrevHC = [Headcount PY]
+RETURN
+    DIVIDE(CurrentHC - PrevHC, PrevHC, BLANK())
+
+
+/* ==============================================================================================
+   FOLDER: 02_Attrition & Retention
+   Description: Các chỉ số phân tích nghỉ việc, lý do thôi việc, tỷ lệ hao hụt và mất mát nhân tài chủ chốt
+   ============================================================================================== */
+
+// 12. Total Terminations (Tổng số nhân sự chấm dứt hợp đồng)
+Terminations Total = 
+CALCULATE(
+    COUNTROWS('FactEmployeeEvents'),
+    'FactEmployeeEvents'[EventType] = "Termination"
+) + 0
+
+// 13. Voluntary Terminations (Nhân sự tự nguyện thôi việc)
+Voluntary Terminations = 
+CALCULATE(
+    COUNTROWS('FactEmployeeEvents'),
+    'FactEmployeeEvents'[EventType] = "Termination",
+    'FactEmployeeEvents'[TerminationType] = "Voluntary"
+) + 0
+
+// 14. Involuntary Terminations (Nhân sự bị chấm dứt hợp đồng/sa thải/tái cấu trúc)
+Involuntary Terminations = 
+CALCULATE(
+    COUNTROWS('FactEmployeeEvents'),
+    'FactEmployeeEvents'[EventType] = "Termination",
+    'FactEmployeeEvents'[TerminationType] = "Involuntary"
+) + 0
+
+// 15. Voluntary Termination Ratio % (Tỷ trọng nghỉ việc tự nguyện trên tổng số ca thôi việc)
+Voluntary Termination % = 
+DIVIDE([Voluntary Terminations], [Terminations Total], 0)
+
+// 16. Involuntary Termination Ratio % (Tỷ trọng thôi việc do tổ chức quyết định)
+Involuntary Termination % = 
+DIVIDE([Involuntary Terminations], [Terminations Total], 0)
+
+// 17. Monthly Attrition Rate % (Tỷ lệ thôi việc theo tháng = Thôi việc / Headcount bình quân)
+Monthly Attrition Rate % = 
+VAR Terms = [Terminations Total]
+VAR AvgHC = [Avg Headcount Period]
+RETURN
+    DIVIDE(Terms, AvgHC, 0)
+
+// 18. Annualized Attrition Rate % (Tỷ lệ thôi việc chuẩn hóa theo năm - Phù hợp so sánh chuẩn quốc tế)
+Annualized Attrition Rate % = 
+VAR Terms = [Terminations Total]
+VAR AvgHC = [Avg Headcount Period]
+VAR MonthsInSelection = 
+    CALCULATE(
+        DISTINCTCOUNT('FactMonthlySnapshot'[Month]),
+        KEEPFILTERS('DimDate')
+    )
+VAR AnnualizationFactor = 
+    IF(
+        MonthsInSelection > 0, 
+        DIVIDE(12, MonthsInSelection, 1), 
+        12
+    )
+RETURN
+    IF(
+        AvgHC > 0,
+        (DIVIDE(Terms, AvgHC, 0) * AnnualizationFactor),
+        BLANK()
+    )
+
+// 19. YTD Attrition Rate % (Tỷ lệ thôi việc tích lũy từ đầu năm)
+YTD Attrition Rate % = 
+VAR TermsYTD = 
+    CALCULATE(
+        [Terminations Total],
+        DATESYTD('DimDate'[Date])
+    )
+VAR AvgHCYTD = 
+    CALCULATE(
+        [Avg Headcount Period],
+        DATESYTD('DimDate'[Date])
+    )
+RETURN
+    DIVIDE(TermsYTD, AvgHCYTD, 0)
+
+// 20. Regrettable Loss Count (Số lượng nhân tài hiệu suất cao - Rating >= 4 ở kỳ đánh giá gần nhất trước khi nghỉ)
+Regrettable Loss Count = 
+CALCULATE(
+    COUNTROWS('FactEmployeeEvents'),
+    'FactEmployeeEvents'[EventType] = "Termination",
+    'FactEmployeeEvents'[TerminationType] = "Voluntary",
+    KEEPFILTERS(
+        FILTER(
+            'DimEmployee',
+            VAR EmpID = 'DimEmployee'[EmployeeID]
+            VAR LatestReviewDate = 
+                CALCULATE(
+                    MAX('FactPerformance'[ReviewDate]),
+                    REMOVEFILTERS('DimDate'),
+                    'FactPerformance'[EmployeeID] = EmpID
+                )
+            VAR LastRating = 
+                CALCULATE(
+                    MAX('FactPerformance'[PerformanceRating]),
+                    REMOVEFILTERS('DimDate'),
+                    'FactPerformance'[EmployeeID] = EmpID,
+                    'FactPerformance'[ReviewDate] = LatestReviewDate
+                )
+            RETURN LastRating >= 4
+        )
+    )
+) + 0
+
+// 21. Regrettable Loss Rate % (Tỷ lệ tổn thất nhân tài = Regrettable Loss / Voluntary Terminations)
+Regrettable Loss Rate % = 
+DIVIDE([Regrettable Loss Count], [Voluntary Terminations], 0)
+
+// 22. Restructuring Terminations (Số ca thôi việc do đợt tái cơ cấu tổ chức)
+Restructuring Terminations = 
+CALCULATE(
+    COUNTROWS('FactEmployeeEvents'),
+    'FactEmployeeEvents'[TerminationReason] = "Company Restructuring"
+) + 0
+
+// 22b. Exit Avg Engagement (Điểm gắn kết trung bình của nhóm tự nguyện thôi việc)
+Exit Avg Engagement = 
+CALCULATE(
+    AVERAGE('FactEngagement'[EngagementScore]),
+    'DimEmployee'[TerminationType] = "Voluntary"
+)
+
+// 22c. Exit Avg Tenure Months (Thâm niên trung bình tính bằng tháng của nhóm tự nguyện thôi việc)
+Exit Avg Tenure Months = 
+CALCULATE(
+    AVERAGE('DimEmployee'[TenureMonthsAtExitOrEnd]),
+    'DimEmployee'[TerminationType] = "Voluntary"
+)
+
+// 22d. Termination Cumulative % (Tỷ lệ thôi việc tích lũy theo nguyên nhân - Phục vụ biểu đồ Pareto 80/20)
+Termination Cumulative % = 
+VAR TotalTerms = 
+    CALCULATE(
+        [Terminations Total],
+        ALLSELECTED('DimEmployee'[TerminationReason])
+    )
+VAR CurrentTerms = [Terminations Total]
+VAR CurrentReason = SELECTEDVALUE('DimEmployee'[TerminationReason])
+VAR CumulativeTerms = 
+    CALCULATE(
+        [Terminations Total],
+        FILTER(
+            ALLSELECTED('DimEmployee'[TerminationReason]),
+            VAR ReasonTerms = [Terminations Total]
+            RETURN
+                ReasonTerms > CurrentTerms || 
+                (ReasonTerms = CurrentTerms && 'DimEmployee'[TerminationReason] <= CurrentReason)
+        )
+    )
+RETURN
+    IF(
+        NOT(ISBLANK(CurrentReason)) && CurrentTerms > 0,
+        DIVIDE(CumulativeTerms, TotalTerms, BLANK())
+    )
+
+
+
+/* ==============================================================================================
+   FOLDER: 03_Planning & Budget Variance
+   Description: Đối soát định biên nhân sự, FTE thực tế so với mục tiêu và chênh lệch ngân sách quỹ lương
+   ============================================================================================== */
+
+// 23. Planned Headcount (Định biên nhân sự theo kế hoạch - Target)
+Planned Headcount = 
+VAR LatestTargetDate = 
+    CALCULATE(
+        MAX('WorkforceTargets'[Month]),
+        KEEPFILTERS('DimDate')
+    )
+RETURN
+    CALCULATE(
+        SUM('WorkforceTargets'[PlannedHeadcount]),
+        'WorkforceTargets'[Month] = LatestTargetDate
+    )
+
+// 24. Budgeted FTE (Định biên FTE theo ngân sách)
+Budgeted FTE = 
+VAR LatestTargetDate = 
+    CALCULATE(
+        MAX('WorkforceTargets'[Month]),
+        KEEPFILTERS('DimDate')
+    )
+RETURN
+    CALCULATE(
+        SUM('WorkforceTargets'[BudgetedFTE]),
+        'WorkforceTargets'[Month] = LatestTargetDate
+    )
+
+// 25. Actual vs Target Headcount Variance (Chênh lệch quy mô nhân sự: Dương = Thừa định biên, Âm = Thiếu định biên)
+Headcount Variance = 
+[Active Headcount] - [Planned Headcount]
+
+// 26. Headcount Variance % (Tỷ lệ chênh lệch định biên nhân sự)
+Headcount Variance % = 
+DIVIDE([Headcount Variance], [Planned Headcount], BLANK())
+
+// 27. Actual vs Target FTE Variance (Chênh lệch FTE thực tế so với ngân sách)
+FTE Variance = 
+[Active FTE] - [Budgeted FTE]
+
+// 28. FTE Variance % (Tỷ lệ chênh lệch FTE)
+FTE Variance % = 
+DIVIDE([FTE Variance], [Budgeted FTE], BLANK())
+
+// 29. Budgeted Salary Cost (Ngân sách chi phí lương kế hoạch tại thời điểm chốt kỳ)
+Budgeted Salary Cost = 
+VAR LatestTargetDate = 
+    CALCULATE(
+        MAX('WorkforceTargets'[Month]),
+        KEEPFILTERS('DimDate')
+    )
+RETURN
+    CALCULATE(
+        SUM('WorkforceTargets'[BudgetedSalaryCost]),
+        'WorkforceTargets'[Month] = LatestTargetDate
+    )
+
+// 30. Actual Annualized Salary Cost (Chi phí lương thực tế hàng năm của lực lượng Active tại thời điểm chốt kỳ)
+Actual Salary Cost = 
+VAR LatestDate = MAX('DimDate'[Date])
+VAR LatestEffectiveDate = 
+    CALCULATE(
+        MAX('FactCompensation'[EffectiveDate]),
+        'FactCompensation'[EffectiveDate] <= LatestDate
+    )
+RETURN
+    CALCULATE(
+        SUM('FactCompensation'[AnnualSalary]),
+        'FactCompensation'[EffectiveDate] = LatestEffectiveDate,
+        'DimEmployee'[EmploymentStatus] = "Active"
+    )
+
+// 31. Salary Cost Variance (Chênh lệch chi phí lương: Thực tế - Kế hoạch)
+Salary Cost Variance = 
+[Actual Salary Cost] - [Budgeted Salary Cost]
+
+// 32. Salary Cost Variance % (Tỷ lệ chênh lệch ngân sách lương)
+Salary Cost Variance % = 
+DIVIDE([Salary Cost Variance], [Budgeted Salary Cost], BLANK())
+
+
+/* ==============================================================================================
+   FOLDER: 04_Talent & Well-being Correlation
+   Description: Tương quan giữa Mức độ gắn kết, Hiệu suất làm việc, Tình trạng vắng mặt và Cạnh tranh đãi ngộ
+   ============================================================================================== */
+
+// 33. Average Engagement Score (Điểm gắn kết trung bình thang 1 - 5)
+Avg Engagement Score = 
+AVERAGE('FactEngagement'[EngagementScore])
+
+// 34. Engagement Survey Response Rate % (Tỷ lệ nhân viên tham gia khảo sát gắn kết)
+Avg Response Rate % = 
+DIVIDE(AVERAGE('FactEngagement'[ResponseRatePct]), 100, BLANK())
+
+// 35. Average Performance Rating (Điểm hiệu suất trung bình thang 1 - 5)
+Avg Performance Rating = 
+AVERAGE('FactPerformance'[PerformanceRating])
+
+// 36. Total Days Absent (Tổng số ngày nhân viên vắng mặt)
+Total Days Absent = 
+SUM('FactAbsence'[DaysAbsent]) + 0
+
+// 37. Sick Leave Days (Số ngày nghỉ ốm)
+Sick Leave Days = 
+CALCULATE(
+    SUM('FactAbsence'[DaysAbsent]),
+    'FactAbsence'[AbsenceType] = "Sick Leave"
+) + 0
+
+// 38. Unpaid Leave Days (Số ngày nghỉ không lương)
+Unpaid Leave Days = 
+CALCULATE(
+    SUM('FactAbsence'[DaysAbsent]),
+    'FactAbsence'[AbsenceType] = "Unpaid Leave"
+) + 0
+
+// 39. Absence Days per Employee (Số ngày vắng mặt bình quân trên mỗi nhân sự)
+Absence Days per Employee = 
+DIVIDE([Total Days Absent], [Avg Headcount Period], 0)
+
+// 40. Sick Leave Ratio % (Tỷ lệ ngày nghỉ ốm trên tổng số ngày nghỉ)
+Sick Leave Ratio % = 
+DIVIDE([Sick Leave Days], [Total Days Absent], 0)
+
+// 41. Level Median Benchmark Salary (Mức lương trung vị của từng Level trên toàn công ty)
+Level Benchmark Salary = 
+CALCULATE(
+    MEDIAN('FactCompensation'[AnnualSalary]),
+    ALLEXCEPT('FactCompensation', 'FactCompensation'[Level])
+)
+
+// 42. Salary Compa-Ratio (Tỷ lệ so sánh lương cá nhân/nhóm với mức lương trung vị thị trường nội bộ)
+// Compa-Ratio = 1.0 nghĩa là bằng trung vị; < 1.0 là dưới chuẩn (nguy cơ nghỉ việc cao); > 1.0 là trên chuẩn
+Avg Compa-Ratio = 
+AVERAGEX(
+    'FactCompensation',
+    VAR CurrentSalary = 'FactCompensation'[AnnualSalary]
+    VAR CurrentLevel = 'FactCompensation'[Level]
+    VAR MedianSalary = 
+        CALCULATE(
+            MEDIAN('FactCompensation'[AnnualSalary]),
+            ALLEXCEPT('FactCompensation', 'FactCompensation'[Level])
+        )
+    RETURN
+        DIVIDE(CurrentSalary, MedianSalary, 1.0)
+)
+
+
+/* ==============================================================================================
+   FOLDER: 05_Recruitment Metrics
+   Description: Đánh giá hiệu suất tuyển dụng, nhu cầu bổ sung nhân sự và tốc độ lấp đầy vị trí trống
+   ============================================================================================== */
+
+// 43. Total Open Requisitions (Tổng số yêu cầu tuyển dụng đang mở)
+Open Requisitions = 
+SUM('FactRecruitment'[OpenRequisitions]) + 0
+
+// 44. Total Filled Requisitions (Tổng số vị trí đã tuyển dụng thành công)
+Filled Requisitions = 
+SUM('FactRecruitment'[FilledRequisitions]) + 0
+
+// 45. Total Cancelled Requisitions (Số yêu cầu tuyển dụng bị hủy bỏ)
+Cancelled Requisitions = 
+SUM('FactRecruitment'[CancelledRequisitions]) + 0
+
+// 46. Total Requisition Demand (Tổng cầu tuyển dụng = Mở + Đã tuyển + Đã hủy)
+Total Requisition Demand = 
+[Open Requisitions] + [Filled Requisitions] + [Cancelled Requisitions]
+
+// 47. Requisition Fill Rate % (Tỷ lệ lấp đầy yêu cầu tuyển dụng)
+Requisition Fill Rate % = 
+DIVIDE([Filled Requisitions], [Total Requisition Demand], 0)
+
+// 48. Average Days to Fill (Thời gian trung bình để tuyển dụng thành công 1 vị trí - Tính bằng ngày)
+Avg Days to Fill = 
+AVERAGE('FactRecruitment'[AvgDaysToFill])
+
+// 49. Hiring Velocity Index (Chỉ số tốc độ tuyển dụng: Tỷ lệ giữa tuyển thành công và thời gian lấp đầy)
+Hiring Velocity Index = 
+DIVIDE([Filled Requisitions], [Avg Days to Fill], 0)
+
+/* ==============================================================================================
+   FOLDER: 06_UI & Dynamic Formatting Helpers
+   Description: Các Measure hỗ trợ hiển thị động, Callout formatting và Conditional formatting colors
+   ============================================================================================== */
+
+// 50. Headcount Variance Status Color (Mã màu HEX cho chênh lệch định biên: Xanh lá = Đạt, Đỏ = Thiếu, Vàng = Thừa)
+Headcount Variance Color = 
+VAR VarPct = [Headcount Variance %]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(VarPct), "#718096",
+        VarPct < -0.10, "#E53E3E", // Thiếu hụt nghiêm trọng > 10% -> Đỏ
+        VarPct < 0, "#DD6B20",     // Thiếu hụt nhẹ 0-10% -> Cam
+        VarPct <= 0.05, "#38A169", // Chuẩn định biên (-0% đến +5%) -> Xanh lá
+        "#3182CE"                  // Vượt định biên -> Xanh dương
+    )
+
+// 51. Attrition Risk Flag (Cờ cảnh báo rủi ro nghỉ việc theo phòng ban)
+Attrition Risk Flag = 
+VAR AnnualRate = [Annualized Attrition Rate %]
+RETURN
+    SWITCH(
+        TRUE(),
+        AnnualRate >= 0.15, "🔴 High Risk (>=15%)",
+        AnnualRate >= 0.08, "🟡 Moderate Risk (8-15%)",
+        "🟢 Healthy Risk (<8%)"
+    )
+
+// 51b. Individual Flight Risk Flag (Cờ cảnh báo nguy cơ nghỉ việc theo từng nhân sự - Phục vụ HRBP Actionable Table)
+Flight Risk Flag = 
+VAR Compa = [Avg Compa-Ratio]
+VAR Eng = [Avg Engagement Score]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(Compa) && ISBLANK(Eng), BLANK(),
+        Compa < 0.95 && Eng < 3.0, "🔴 Critical Risk (Underpaid & Disengaged)",
+        Compa < 0.95, "🟡 Comp Risk (Underpaid)",
+        Eng < 3.0, "🟠 Engagement Risk (Low Morale)",
+        "🟢 Healthy"
+    )
+
+// 52. Dynamic Report Title (Tiêu đề báo cáo động theo kỳ được chọn)
+Dynamic Header Title = 
+VAR MinDateStr = FORMAT(MIN('DimDate'[Date]), "MMM yyyy")
+VAR MaxDateStr = FORMAT(MAX('DimDate'[Date]), "MMM yyyy")
+RETURN
+    "Workforce Analytics & Strategic Planning Cockpit | Period: " & MinDateStr & " - " & MaxDateStr
+
+// 53. Recommended Retention Action (Hành động can thiệp đề xuất tự động - English Concise Tags)
+Recommended Action = 
+VAR Compa = [Avg Compa-Ratio]
+VAR Eng = [Avg Engagement Score]
+VAR Absence = [Total Days Absent]
+VAR Perf = [Avg Performance Rating]
+VAR IsActive = [Active Headcount] > 0
+RETURN
+    IF(
+        IsActive,
+        SWITCH(
+            TRUE(),
+            // 1. Critical Top Performer flight risk (High rating + Underpaid + Disengaged)
+            Compa < 0.95 && Eng < 3.0 && Perf >= 4, 
+                "🚨 Retain Top Talent",
+
+            // 2. Dual Risk: Underpaid & Disengaged
+            Compa < 0.95 && Eng < 3.0, 
+                "⚠️ Comp Review & 1-on-1",
+
+            // 3. Burnout Alert: High Absence & Low Morale
+            Eng < 3.0 && Absence >= 10, 
+                "🧘 Workload Rebalance",
+
+            // 4. Compensation Deficit (Under market P90)
+            Compa < 0.90, 
+                "💰 Adjust Comp to P50",
+
+            // 5. Engagement / Career Stagnation
+            Eng < 3.0, 
+                "🗣️ Stay Interview",
+
+            BLANK()
+        ),
+        BLANK()
+    )
+

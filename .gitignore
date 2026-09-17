@@ -1,0 +1,24 @@
+# =======================================================
+# GITIGNORE FOR WORKFORCE MANAGEMENT REPOSITORY
+# =======================================================
+
+# 1. Internal assignment brief & school files
+Đề bài.docx
+*.docx
+
+# 2. Personal presentation speech notes & Internal project plan
+EXECUTIVE_ANALYTICS_REPORT.md
+PROJECT_PLAN.md
+
+# 3. Microsoft Office & Temp files
+~$*.xlsx
+~$*.docx
+*.tmp
+
+# 4. Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# 5. OS temporary files
+Thumbs.db
+Desktop.ini
+.DS_Store
