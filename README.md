@@ -16,7 +16,7 @@
 4. [Kiến Trúc Mô Hình Dữ Liệu (Star Schema)](#4-kiến-trúc-mô-hình-dữ-liệu-star-schema)
 5. [Thư Viện Thước Đo DAX Nâng Cao](#5-thư-viện-thước-đo-dax-nâng-cao)
 6. [Hệ Thống Dashboard 3 Trang Phân Tích](#6-hệ-thống-dashboard-3-trang-phân-tích)
-7. [Cấu Trúc Thư Mục & Hướng Dẫn Cài Đặt](#7-cấu-trúc-thư-mục--hướng-dẫn-cài-đặt)
+7. [Cấu Trúc Thư Mục Dự Án](#7-cấu-trúc-thư-mục-dự-án)
 
 ---
 
@@ -230,7 +230,7 @@ RETURN
 
 ---
 
-## 7. CẤU TRÚC THƯ MỤC & HƯỚNG DẪN CÀI ĐẶT
+## 7. CẤU TRÚC THƯ MỤC DỰ ÁN
 
 ```text
 ├── 📊 WorkForce_Management.pbix                     # File báo cáo Power BI Desktop hoàn chỉnh (3 trang)
@@ -240,26 +240,3 @@ RETURN
 ├── 📓 02_exploratory_data_analysis.ipynb           # Notebook phân tích khám phá dữ liệu & đối soát
 └── 📘 README.md                                     # Tài liệu tổng quan dự án (Hồ sơ Portfolio Showcase)
 ```
-
-### Cách Sử Dụng & Tái Lập Dự Án:
-1. **Clone repository về máy:**
-   ```bash
-   git clone https://github.com/NDL6704/workforce-management-analytics.git
-   ```
-2. **Mở Power BI Desktop:**
-   - Tạo kết nối dữ liệu đến file Excel `HR_Workforce_Planning_Attrition_Dataset.xlsx`.
-   - Thiết lập mô hình quan hệ Star Schema theo sơ đồ tại [Mục 4](#4-kiến-trúc-mô-hình-dữ-liệu-star-schema).
-3. **Import Thước đo DAX:**
-   - Copy các thước đo tương ứng từ file `DAX_MEASURES.dax` vào bảng `_KeyMeasures`.
-4. **Trải nghiệm Báo cáo:**
-   - Điều hướng giữa các trang và sử dụng thanh Sync Slicers (Năm, Khối phòng ban, Địa điểm) để cắt lát dữ liệu đa chiều.
-
----
-
-## 👨‍💻 TÁC GIẢ & LIÊN HỆ
-* **Dự án:** People Analytics & Strategic Workforce Management Showcase
-* **Kỹ năng ứng dụng:** Power BI Desktop, DAX Studio, Star Schema Data Modeling, UI/UX Dashboard Design, Python (Pandas/EDA), Business Strategy & Financial ROI Modeling.
-* **Liên hệ:** [LinkedIn Profile](#) | [Email](#)
-
----
-*Dự án được xây dựng phục vụ mục đích Portfolio cá nhân, minh họa năng lực phân tích dữ liệu kinh doanh và ra quyết định chiến lược nhân sự.*
