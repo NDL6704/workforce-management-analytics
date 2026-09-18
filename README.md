@@ -3,6 +3,7 @@
 
 ![Power BI](https://img.shields.io/badge/Power_BI-Desktop_2024-F2C811?style=for-the-badge&logo=powerbi&logoColor=black)
 ![DAX](https://img.shields.io/badge/DAX-53_Enterprise_Measures-0078D4?style=for-the-badge&logo=microsoft&logoColor=white)
+![SQL](https://img.shields.io/badge/SQL-ANSI_53_Measures_Library-CC292B?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Data Modeling](https://img.shields.io/badge/Data_Model-Star_Schema-239120?style=for-the-badge&logo=databricks&logoColor=white)
 ![UI/UX](https://img.shields.io/badge/Canvas-1920x1080_FHD-FF6F00?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Status-Completed_%26_Production_Ready-success?style=for-the-badge)
@@ -14,7 +15,7 @@
 2. [Phát Hiện Dữ Liệu Đột Phá (Key Insights)](#2-phát-hiện-dữ-liệu-đột-phá-key-insights)
 3. [🎯 KHUNG CHIẾN LƯỢC HÀNH ĐỘNG & TÍNH TOÁN ROI (ACTIONABLE STRATEGY & ROI)](#3--khung-chiến-lược-hành-động--tính-toán-roi)
 4. [Kiến Trúc Mô Hình Dữ Liệu (Star Schema)](#4-kiến-trúc-mô-hình-dữ-liệu-star-schema)
-5. [Thư Viện Thước Đo DAX Nâng Cao](#5-thư-viện-thước-đo-dax-nâng-cao)
+5. [Thư Viện Thước Đo Quản Trị (DAX & SQL Tham Chiếu)](#5-thư-viện-thước-đo-quản-trị-dax--sql-tham-chiếu)
 6. [Hệ Thống Dashboard 3 Trang Phân Tích](#6-hệ-thống-dashboard-3-trang-phân-tích)
 7. [Cấu Trúc Thư Mục Dự Án](#7-cấu-trúc-thư-mục-dự-án)
 
@@ -145,9 +146,11 @@ graph TD
 
 ---
 
-## 5. THƯ VIỆN THƯỚC ĐO DAX NÂNG CAO
+## 5. THƯ VIỆN THƯỚC ĐO QUẢN TRỊ (DAX & SQL THAM CHIẾU)
 
-Dự án trang bị bộ thư viện gồm **53 thước đo DAX chuyên sâu** được tổ chức theo các nhóm nghiệp vụ:
+Dự án cung cấp bộ thư viện gồm **53 thước đo quản trị nhân sự chuyên sâu**:
+- 📈 **Power BI DAX ([DAX_MEASURES.dax](DAX_MEASURES.dax)):** Cốt lõi của Dashboard, tối ưu hóa cho VertiPaq In-Memory Engine của Power BI Desktop.
+- 🗄️ **SQL Reference Library ([SQL_MEASURES.sql](SQL_MEASURES.sql)):** Thư viện câu lệnh SQL tương đương chuẩn ANSI (PostgreSQL, MS SQL Server, Snowflake, BigQuery) phục vụ các nhà phân tích muốn truy vấn trực tiếp trên cơ sở dữ liệu.
 
 ### 1. Phép tính Bán cộng (Semi-Additive Measures - Snapshot Logic)
 Đảm bảo tính chính xác số lượng nhân sự chốt kỳ tại bất kỳ mốc thời gian nào trong quá khứ mà không bị cộng dồn sai lệch qua các tháng:
@@ -235,7 +238,8 @@ RETURN
 ```text
 ├── 📊 WorkForce_Management.pbix                     # File báo cáo Power BI Desktop hoàn chỉnh (3 trang)
 ├── 📁 HR_Workforce_Planning_Attrition_Dataset.xlsx  # Dữ liệu nguồn chuẩn hóa (12 bảng dữ liệu)
-├── 📈 DAX_MEASURES.dax                              # Thư viện 53 thước đo DAX doanh nghiệp hoàn chỉnh
+├── 📈 DAX_MEASURES.dax                              # Thư viện 53 thước đo DAX trong Power BI
+├── 🗄️ SQL_MEASURES.sql                              # Thư viện câu lệnh SQL tham chiếu tương đương
 ├── 📓 01_data_audit_and_profiling.ipynb            # Notebook kiểm toán & hồ sơ hóa dữ liệu nguồn
 ├── 📓 02_exploratory_data_analysis.ipynb           # Notebook phân tích khám phá dữ liệu & đối soát
 └── 📘 README.md                                     # Tài liệu tổng quan dự án (Hồ sơ Portfolio Showcase)
