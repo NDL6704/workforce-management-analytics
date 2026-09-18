@@ -1,7 +1,7 @@
 # 📊 WORKFORCE MANAGEMENT & ATTRITION ANALYTICS DASHBOARD
 ### Enterprise People Analytics & Strategic Retention Cockpit (Power BI Suite)
 
-![Power BI](https://img.shields.io/badge/Power_BI-Desktop_2024-F2C811?style=for-the-badge&logo=powerbi&logoColor=black)
+![Power BI](https://img.shields.io/badge/Power_BI-Desktop_Latest_Release-F2C811?style=for-the-badge&logo=powerbi&logoColor=black)
 ![DAX](https://img.shields.io/badge/DAX-53_Enterprise_Measures-0078D4?style=for-the-badge&logo=microsoft&logoColor=white)
 ![SQL](https://img.shields.io/badge/SQL-ANSI_53_Measures_Library-CC292B?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Data Modeling](https://img.shields.io/badge/Data_Model-Star_Schema-239120?style=for-the-badge&logo=databricks&logoColor=white)
