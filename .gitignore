@@ -6,9 +6,10 @@
 Đề bài.docx
 *.docx
 
-# 2. Personal presentation speech notes & Internal project plan
+# 2. Personal presentation speech notes & Internal project plan / interview prep
 EXECUTIVE_ANALYTICS_REPORT.md
 PROJECT_PLAN.md
+docs/
 
 # 3. Microsoft Office & Temp files
 ~$*.xlsx
